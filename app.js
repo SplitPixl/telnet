@@ -46,13 +46,22 @@ function newSocket(socket) {
     socket.write(stdout)
     socket.write([`${chalk.cyan(' ▒')}${chalk.bgCyan.black(' Welcome to Splixl\'s Telnet Thing! ')}${chalk.cyan('▒ ')}`,
                   ` ${chalk.yellow('This assumes you use a 80 x 24 term.')}`,
+                  `      Try ${chalk.green('help')} to see commands.`,
                   `>>> `].join('\r\n'));
   })
+/*
+ ▒ Welcome to Splixl's Telnet Thing! ▒
+ This assumes you us e a 80 x 24 term.
+      Try help to see commands.
+*/
 	socket.on('data', (data) => {
 		command(socket, data);
 	})
   socket.on('close',() => {
     console.log(`Connection from ${socket.ip} closed.`)
+  })
+  socket.on("error", (err) => {
+    console.log(`Socket error:\n${err.stack}`)
   })
 }
 
