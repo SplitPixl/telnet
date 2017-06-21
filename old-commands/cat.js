@@ -7,16 +7,13 @@ const cat = [
   ' █           █',
   '  █         █ ',
   '   █████████  '
-]
+].join('\r\n')
 
 module.exports = {
   "name":"cat",
   "description": "Draws a cat!",
   "usage": "",
   "run": function(ctx) {
-    cat.forEach(line => {
-      ctx.panes.output.add(line)
-    })
-    ctx.panes.input.focus()
+    ctx.socket.write(cat + '\r\n')
   }
 }

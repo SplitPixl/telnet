@@ -1,72 +1,131 @@
-const net = require('net');
-const chalk = require('chalk');
-const config = require('./config.json');
-const exec = require('child_process').exec
+const blessed = require('blessed');
+const telnet = require('telnet2');
+
 let commands
 require('./loader.js')(cmds => {
   commands = cmds
-  console.log(`Telnet server started on :${config.port}\r\nLoaded ${Object.keys(commands).length} commands.`)
+  console.log(`Telnet server started on :${''}\r\nLoaded ${Object.keys(commands).length} commands.`)
 })
 
-function command(socket, data) {
-  socket.cmdcount++
-	let ctx = {
-    data: data,
-    cmd: {
-      raw: data,
-      clean: data.toString().replace(/(\r\n|\n|\r)/gm,""),
-      args:  data.toString().replace(/(\r\n|\n|\r)/gm,"").split(' ')
+telnet({ tty: true }, function(client) {
+  client.on('term', function(terminal) {
+    screen.terminal = terminal;
+    screen.render();
+  });
+
+  client.on('size', function(width, height) {
+    client.columns = width;
+    client.rows = height;
+    client.emit('resize');
+  });
+
+  let screen = blessed.screen({
+    smartCSR: true,
+    input: client,
+    output: client,
+    terminal: 'xterm-256color',
+    fullUnicode: true
+  });
+
+  client.on('close', function() {
+    if (!screen.destroyed) {
+      screen.destroy();
+    }
+  });
+
+  let output = new blessed.log({
+    screen: screen,
+    top: 0,
+    left: 0,
+    width: '100%',
+    bottom: 2,
+    scrollOnInput: true
+  })
+  screen.append(output);
+
+  screen.append(new blessed.box({
+    screen: screen,
+    height: 1,
+    bottom: 1,
+    left: 0,
+    width: '100%',
+    type: 'line',
+    ch: '='
+  }));
+
+  let input = new blessed.textbox({
+    screen: screen,
+    bottom: 0,
+    height: 1,
+    width: '100%',
+    inputOnFocus: true
+  });
+  screen.append(input);
+  input.focus();
+
+  output.setContent('Hello!')
+  output.add(blessed.helpers.parseTags('Type {bold}help{/bold} to see commands.'))
+
+  // Quit on Escape or Control-C.
+  screen.key(['escape', 'C-c'], function(ch, key) {
+    screen.destroy();
+    client.end()
+  });
+
+  let panes = {
+    output: output,
+    input: input
+  }
+
+  input.on('submit', function(line) {
+    output.add(line)
+    command(client, screen, panes, line)
+    input.clearValue();
+    if (!input.focused) {
+//      input.focus();
+    }
+  });
+
+  let welcome = blessed.box({
+    parent: screen,
+    top: 'center',
+    left: 'center',
+    width: 'shrink',
+    height: 'shrink',
+    content: blessed.helpers.parseTags('{cyan-bg}{black-fg}▒ Welcome to Splixl\'s Telnet Thing! ▒{/black-fg}{/cyan-bg}'),
+    border: {
+      type: 'line'
     },
-    socket: socket
+  })
+
+  screen.render();
+
+  setTimeout(() => {
+    welcome.destroy()
+    screen.render()
+  }, 2000)
+
+}).listen(23);
+
+function command(client, screen, panes, line) {
+	let ctx = {
+    client: client,
+    screen: screen,
+    panes: panes,
+    input: line,
+    args: line.split(' ')
   }
 
-  if (ctx.socket.awaitFn) {
-    ctx.socket.awaitFn(ctx)
+  if (ctx.screen.awaitFn) {
+    ctx.screen.awaitFn(ctx)
   } else {
-    if (Object.keys(commands).includes(ctx.cmd.args[0].toLowerCase())) {
-      commands[ctx.cmd.args[0].toLowerCase()].run(ctx)
-    } else if (!Object.keys(commands).includes(ctx.cmd.args[0].toLowerCase()) && socket.cmdcount > 1) {
-      socket.write(chalk.red('Command not found.\r\n'))
+    if (Object.keys(commands).includes(ctx.args[0].toLowerCase())) {
+      commands[ctx.args[0].toLowerCase()].run(ctx)
     } else {
-      return ;
-    }
-    if (!ctx.socket.awaitFn) {
-      try {
-        ctx.socket.write('>>> ')
-      } catch(err) {}
+      ctx.panes.output.add(blessed.helpers.parseTags(`{red-fg}Command {bold}${ctx.args[0]}{/bold} not found.{/red-fg}`))
+      ctx.panes.output.add(' ')
+      ctx.panes.input.focus()
+
     }
   }
 }
-
-function newSocket(socket) {
-  socket.cmdcount = 0
-  socket.ip = socket.address().address
-  console.log(`New connection from ${socket.ip}`)
-  exec('clear', (err, stdout, stderr) => {
-    socket.write(stdout)
-    socket.write([`${chalk.cyan(' ▒')}${chalk.bgCyan.black(' Welcome to Splixl\'s Telnet Thing! ')}${chalk.cyan('▒ ')}`,
-                  ` ${chalk.yellow('This assumes you use a 80 x 24 term.')}`,
-                  `      Try ${chalk.green('help')} to see commands.`,
-                  `>>> `].join('\r\n'));
-  })
-/*
- ▒ Welcome to Splixl's Telnet Thing! ▒
- This assumes you us e a 80 x 24 term.
-      Try help to see commands.
-*/
-	socket.on('data', (data) => {
-		command(socket, data);
-	})
-  socket.on('close',() => {
-    console.log(`Connection from ${socket.ip} closed.`)
-  })
-  socket.on("error", (err) => {
-    console.log(`Socket error:\n${err.stack}`)
-  })
-}
-
-// Create a new server and provide a callback for when a connection occurs
-var server = net.createServer(newSocket);
-
-// Listen on port 8888
-server.listen(config.port);

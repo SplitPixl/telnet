@@ -3,6 +3,6 @@ module.exports = {
   "description": "PONG!",
   "usage": "",
   "run": function(ctx) {
-    ctx.panes.output.add('Pong!')
+    ctx.socket.write('Pong!\r\n')
   }
 }

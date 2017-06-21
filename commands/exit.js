@@ -1,8 +1,9 @@
 module.exports = {
   "name":"exit",
-  "description": "leave I guess",
+  "description": "Leave the session",
   "usage": "",
   "run": function(ctx) {
-    ctx.socket.end('Bye!\r\n')
+    ctx.screen.destroy()
+    ctx.client.end()
   }
 }

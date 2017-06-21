@@ -1,16 +1,16 @@
 const util = require('util');
 
 module.exports = {
-  "name":"debuk",
+  "name":"debug",
   "description": "beep boop",
   "usage": "",
   "run": function(ctx) {
-    ctx.socket.awaitFn = function (ctx2) {
-      ctx2.socket.write(`You said: ${ctx2.cmd.clean}\r\n>>> `)
-      delete ctx.socket.awaitFn
-
+    ctx.screen.awaitFn = function (ctx2) {
+      ctx2.panes.output.add(`You said: ${ctx2.input}`)
+      delete ctx.screen.awaitFn
+      ctx.panes.input.focus()
     }
-    ctx.socket.write('Henlo! Please write somthing...\r\n>> ')
-
+    ctx.panes.output.add('Henlo! Please write somthing...')
+    ctx.panes.input.focus()
   }
 }
