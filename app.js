@@ -105,7 +105,7 @@ telnet({ tty: true }, function(client) {
     screen.render()
   }, 2000)
 
-}).listen(23);
+}).listen(2323);
 
 function command(client, screen, panes, line) {
 	let ctx = {
